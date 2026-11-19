@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SchedExtBPFSchema",
+  "description": "Kernel eBPF Map and Struct Layouts for scx_heisenbug",
+  "bpf_maps": {
+    "target_pids": {
+      "type": "BPF_MAP_TYPE_HASH",
+      "key_size": 4,
+      "value_size": 4,
+      "max_entries": 1024,
+      "description": "Monitored TGID / PIDs"
+    },
+    "sched_config": {
+      "type": "BPF_MAP_TYPE_ARRAY",
+      "key_size": 4,
+      "value_size": 32,
+      "max_entries": 1,
+      "description": "Global config: seed (u64), prng_state (u64), mode (u32), event_counter (u64)"
+    },
+    "replay_plan": {
+      "type": "BPF_MAP_TYPE_ARRAY",
+      "key_size": 4,
+      "value_size": 8,
+      "max_entries": 131072,
+      "description": "Pre-computed thread switch sequence for deterministic replay and DDmin test passes"
+    },
+    "events_ringbuf": {
+      "type": "BPF_MAP_TYPE_RINGBUF",
+      "max_entries": 16777216,
+      "description": "16MB ring buffer streaming scheduling events from kernel to userspace"
+    }
+  },
+  "c_structs": {
+    "sched_config_val": {
+      "fields": [
+        { "name": "seed", "type": "u64" },
+        { "name": "prng_state", "type": "u64" },
+        { "name": "mode", "type": "u32" },
+        { "name": "flags", "type": "u32" },
+        { "name": "event_counter", "type": "u64" }
+      ]
+    },
+    "sched_event": {
+      "fields": [
+        { "name": "timestamp_ns", "type": "u64" },
+        { "name": "event_id", "type": "u64" },
+        { "name": "tgid", "type": "u32" },
+        { "name": "prev_tid", "type": "u32" },
+        { "name": "next_tid", "type": "u32" },
+        { "name": "cpu", "type": "u32" },
+        { "name": "flags", "type": "u32" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HeisenbugAPIContracts",
+  "description": "API Contracts between CLI, Core Engine, Tracer, and Schedulers",
+  "types": {
+    "ExecutionTrace": {
+      "type": "object",
+      "required": ["seed", "total_events", "target_command", "crash_exit_code", "events"],
+      "properties": {
+        "seed": { "type": "string", "pattern": "^0x[0-9a-fA-F]{16}$" },
+        "total_events": { "type": "integer", "minimum": 0 },
+        "target_command": { "type": "array", "items": { "type": "string" } },
+        "crash_exit_code": { "type": "integer" },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/types/SchedEvent" }
+        }
+      }
+    },
+    "SchedEvent": {
+      "type": "object",
+      "required": ["seq", "timestamp_ns", "tgid", "prev_tid", "next_tid", "cpu"],
+      "properties": {
+        "seq": { "type": "integer", "minimum": 0 },
+        "timestamp_ns": { "type": "integer", "minimum": 0 },
+        "tgid": { "type": "integer" },
+        "prev_tid": { "type": "integer" },
+        "next_tid": { "type": "integer" },
+        "cpu": { "type": "integer" },
+        "flags": { "type": "integer" }
+      }
+    },
+    "MinimizationResult": {
+      "type": "object",
+      "required": ["seed", "original_events_count", "minimized_events_count", "iterations", "minimized_switches"],
+      "properties": {
+        "seed": { "type": "string" },
+        "original_events_count": { "type": "integer" },
+        "minimized_events_count": { "type": "integer" },
+        "iterations": { "type": "integer" },
+        "reduction_percentage": { "type": "number" },
+        "minimized_switches": {
+          "type": "array",
+          "items": { "$ref": "#/types/SchedEvent" }
+        }
+      }
+    }
+  }
+}
