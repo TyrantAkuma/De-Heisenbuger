@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrchesIt Control Plane — Heisenbug</title>
+    <style>
+        :root {
+            --bg-canvas: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --border-color: #E2E8F0;
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #64748B;
+            --accent-primary: #2563EB;
+            --accent-hover: #1D4ED8;
+            --success-bg: #DEF7EC;
+            --success-fg: #03543F;
+            --danger-bg: #FDE8E8;
+            --danger-fg: #9B1C1C;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .objective-text {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            background: #F1F5F9;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-primary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-canvas);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .progress-bar-container {
+            margin-top: 1.5rem;
+            background: #E2E8F0;
+            border-radius: 9999px;
+            height: 12px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            background: #10B981;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tasks-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .task-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .task-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .task-title-group {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .task-id {
+            font-weight: 700;
+            color: var(--accent-primary);
+            font-family: monospace;
+        }
+
+        .task-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .status-pill {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            letter-spacing: 0.025em;
+        }
+
+        .task-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            background: #F8FAFC;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .meta-label {
+            color: var(--text-muted);
+        }
+
+        .role-badge {
+            background: #E0E7FF;
+            color: #3730A3;
+            font-family: monospace;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .criteria-box {
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .criteria-box ul {
+            margin-left: 1.25rem;
+            margin-top: 0.25rem;
+            color: var(--text-secondary);
+        }
+
+        .artifact-list {
+            background: #F8FAFC;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .artifact-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.35rem 0;
+            border-bottom: 1px dashed var(--border-color);
+            font-family: monospace;
+        }
+
+        .artifact-row:last-child {
+            border-bottom: none;
+        }
+
+        .artifact-hash {
+            color: var(--accent-primary);
+            background: #EEF2FF;
+            padding: 0.1rem 0.3rem;
+            border-radius: 4px;
+        }
+
+        .verif-box {
+            background: #F9FAFB;
+            border-left: 4px solid #10B981;
+            padding: 0.75rem 1rem;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .verif-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+
+        .critique {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .jury-section {
+            margin-top: 1rem;
+            background: #F8FAFC;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .jury-section h4 {
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .jurors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .juror-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .juror-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+
+        .juror-role {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .juror-reasoning {
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .juror-rebuttal {
+            margin-top: 0.4rem;
+            padding-top: 0.4rem;
+            border-top: 1px dashed var(--border-color);
+            color: #4338CA;
+            font-size: 0.8rem;
+        }
+
+        .resolution-box {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.85rem;
+            color: #1E3A8A;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div>
+                    <h1>OrchesIt Autonomous Multi-Agent Control Plane</h1>
+                    <div style="font-size:0.9rem; color:var(--text-muted); margin-top:0.25rem;">
+                        Project ID: <code>heisenbug-v1</code> &bull; Status: <strong>COMPLETED</strong>
+                    </div>
+                </div>
+                <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-size: 0.9rem; font-weight: 700;">ACID PERSISTENT</span>
+            </div>
+
+            <div class="objective-text">
+                <strong>User Objective:</strong> Multi-threaded race conditions (Heisenbugs) pass locally but fail intermittently in CI, wasting 100s of dev hours. Uses Linux 6.12+ sched_ext (eBPF) to control thread dispatch via a 64-bit seed. Any crash is 100% reproducible with --seed. Auto-minimizes 100k events to 5 switches via DDmin.
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">9</div>
+                    <div class="stat-label">Total DAG Tasks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" style="color:#10B981;">9</div>
+                    <div class="stat-label">Verified Passing</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" style="color:#2563EB;">0</div>
+                    <div class="stat-label">In Flight / Verifying</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" style="color:#EF4444;">0</div>
+                    <div class="stat-label">Defects / Failed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">100%</div>
+                    <div class="stat-label">Completion Progress</div>
+                </div>
+            </div>
+
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: 100%;"></div>
+            </div>
+        </header>
+
+        <div class="section-title">
+            <span>Dependency Execution Stream & Deliberation Record</span>
+        </div>
+
+        <div class="tasks-container">
+            
+            <div class="task-card" id="task-TASK-01">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-01]</span>
+                        <h3 class="task-title">Market Requirements &amp; Concurrency Analysis</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>Premise &amp; Requirements</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@RequirementsAnalyst</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@AdversarialSystemsAuditor</span></div>
+                    <div><span class="meta-label">Deliberation:</span> ADVERSARIAL_JURY</div>
+                    <div><span class="meta-label">Dependencies:</span> None (Root)</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Detailed comparison with ThreadSanitizer, rr, and Loom</li><li>Mathematical framing of 64-bit seed determinism</li><li>User personas and ROI metrics</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\docs\01-market-requirements.md</span>
+                            <span class="artifact-hash" title="SHA-256">b774c9c582ba20fe...</span>
+                            <span class="artifact-size">5650 B</span>
+                        </div>
+                        </div>
+                
+                
+                <div class="jury-section">
+                    <h4>Adversarial Jury Deliberations (Round 1 & 2)</h4>
+                    <div class="jurors-grid">
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@TechnicalReviewer</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 95%)</span>
+                            </div>
+                            <div class="juror-reasoning">Comprehensive gap analysis against rr and Loom.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@AdversarialCritic</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 88%)</span>
+                            </div>
+                            <div class="juror-reasoning">User personas appropriately address CI flakiness economics.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@DomainExpert</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 92%)</span>
+                            </div>
+                            <div class="juror-reasoning">Accurately targets Linux 6.12 sched_ext capabilities.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@FactChecker</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 100%)</span>
+                            </div>
+                            <div class="juror-reasoning">All citations and kernel version numbers verified.</div>
+                            
+                        </div>
+                        </div>
+                    
+                    <div class="resolution-box">
+                        <strong>Orchestrator Binding Resolution:</strong>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                        <p>Adversarial jury unanimous PASS: Requirements rigorously define problem and solution boundaries.</p>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-02">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-02]</span>
+                        <h3 class="task-title">System Architecture &amp; eBPF Contracts</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>System Architecture</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@PrincipalArchitect</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@ReliabilityAuditor</span></div>
+                    <div><span class="meta-label">Deliberation:</span> ADVERSARIAL_JURY</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-01</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Linux 6.12+ sched_ext dispatch pipeline diagram</li><li>BPF map schema and ringbuffer contract defined</li><li>SplitMix64 bit-exact specification</li><li>DDmin algorithmic formulation</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\docs\02-architecture.md</span>
+                            <span class="artifact-hash" title="SHA-256">6129811c279bbb00...</span>
+                            <span class="artifact-size">7756 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\docs\02-api-contracts.json</span>
+                            <span class="artifact-hash" title="SHA-256">1863d5049181692a...</span>
+                            <span class="artifact-size">1794 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\docs\02-bpf-schema.json</span>
+                            <span class="artifact-hash" title="SHA-256">3a865b89e6bfd878...</span>
+                            <span class="artifact-size">1717 B</span>
+                        </div>
+                        </div>
+                
+                
+                <div class="jury-section">
+                    <h4>Adversarial Jury Deliberations (Round 1 & 2)</h4>
+                    <div class="jurors-grid">
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@TechnicalReviewer</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 95%)</span>
+                            </div>
+                            <div class="juror-reasoning">Clean separation between kernel eBPF and userspace Rust control plane.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@AdversarialCritic</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 90%)</span>
+                            </div>
+                            <div class="juror-reasoning">Replay plan buffer bounds prevent kernel overflow.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@DomainExpert</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 95%)</span>
+                            </div>
+                            <div class="juror-reasoning">Conforms precisely to sched_ext API specifications.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@FactChecker</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 100%)</span>
+                            </div>
+                            <div class="juror-reasoning">SplitMix64 constants match reference implementation.</div>
+                            
+                        </div>
+                        </div>
+                    
+                    <div class="resolution-box">
+                        <strong>Orchestrator Binding Resolution:</strong>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                        <p>Adversarial jury unanimous PASS: Architecture satisfies kernel safety and algorithmic requirements.</p>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-03">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-03]</span>
+                        <h3 class="task-title">Core PRNG &amp; DDmin Minimization Engine</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>Core Engine</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@SeniorBackendEngineer</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@IndependentCodeReviewer</span></div>
+                    <div><span class="meta-label">Deliberation:</span> SINGLE_VERIFIER</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-02</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Bit-for-bit SplitMix64 generator implemented</li><li>Andreas Zeller DDmin algorithm with chunk partitioning</li><li>Trace serialization with SHA-256 integrity check</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\crates\heisenbug-core\src\prng.rs</span>
+                            <span class="artifact-hash" title="SHA-256">2b812554dc89ea95...</span>
+                            <span class="artifact-size">1944 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\crates\heisenbug-core\src\ddmin.rs</span>
+                            <span class="artifact-hash" title="SHA-256">304632ebf0fa5bfb...</span>
+                            <span class="artifact-size">5069 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\crates\heisenbug-core\src\trace.rs</span>
+                            <span class="artifact-hash" title="SHA-256">0523837db53c2b3a...</span>
+                            <span class="artifact-size">2499 B</span>
+                        </div>
+                        </div>
+                
+                <div class="verif-box">
+                    <div class="verif-header">
+                        <strong>Independent Verifier:</strong> <span class="role-badge">@IndependentCodeReviewer</span>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                    </div>
+                    <p class="critique">"SplitMix64 produces identical values to C implementation. DDmin partitions subsets and complements correctly."</p>
+                </div>
+                
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-04">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-04]</span>
+                        <h3 class="task-title">Linux 6.12+ sched_ext eBPF Kernel Scheduler</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>Kernel eBPF</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@KernelBPFEngineer</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@SystemsVerifier</span></div>
+                    <div><span class="meta-label">Deliberation:</span> SINGLE_VERIFIER</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-02</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>struct sched_ext_ops scx_heisenbug_ops implementation</li><li>Target process TGID filtering without host impact</li><li>Seed-driven dispatch and replay plan execution</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\bpf\scx_heisenbug.bpf.c</span>
+                            <span class="artifact-hash" title="SHA-256">c4183136b943ec52...</span>
+                            <span class="artifact-size">7164 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\bpf\scx_common.h</span>
+                            <span class="artifact-hash" title="SHA-256">f8b8f97fedad98ca...</span>
+                            <span class="artifact-size">1174 B</span>
+                        </div>
+                        </div>
+                
+                <div class="verif-box">
+                    <div class="verif-header">
+                        <strong>Independent Verifier:</strong> <span class="role-badge">@SystemsVerifier</span>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                    </div>
+                    <p class="critique">"BPF program complies with verifier limits, bounds all loops, and routes non-target processes to SCX_DSQ_GLOBAL."</p>
+                </div>
+                
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-05">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-05]</span>
+                        <h3 class="task-title">Deterministic Concurrency Sim &amp; Testbed</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>Simulation Runtime</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@RuntimeSystemsEngineer</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@IndependentCodeReviewer</span></div>
+                    <div><span class="meta-label">Deliberation:</span> SINGLE_VERIFIER</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-03</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Cross-platform userspace scheduler simulation</li><li>Unsynchronized bank account transfer race benchmark</li><li>100% reproducible crash verification loop</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\crates\heisenbug-sim\src\scheduler.rs</span>
+                            <span class="artifact-hash" title="SHA-256">651a4861b76d1c0f...</span>
+                            <span class="artifact-size">3554 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\crates\heisenbug-sim\src\benchmarks.rs</span>
+                            <span class="artifact-hash" title="SHA-256">481911f6ddbb9c79...</span>
+                            <span class="artifact-size">5725 B</span>
+                        </div>
+                        </div>
+                
+                <div class="verif-box">
+                    <div class="verif-header">
+                        <strong>Independent Verifier:</strong> <span class="role-badge">@IndependentCodeReviewer</span>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                    </div>
+                    <p class="critique">"Simulation executes deterministic thread steps. Bank account race condition reproduces 100% on identical seed."</p>
+                </div>
+                
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-06">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-06]</span>
+                        <h3 class="task-title">Developer CLI &amp; Diagnostic Suite</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>CLI &amp; Tooling</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@CLIEngineer</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@UXAuditor</span></div>
+                    <div><span class="meta-label">Deliberation:</span> SINGLE_VERIFIER</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-03, TASK-05</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Rich CLI commands: fuzz, replay, minimize, demo, status</li><li>High-clarity diagnostic terminal reporting</li><li>Proper exit code handling</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\crates\heisenbug-cli\src\main.rs</span>
+                            <span class="artifact-hash" title="SHA-256">03275619159c1129...</span>
+                            <span class="artifact-size">7503 B</span>
+                        </div>
+                        </div>
+                
+                <div class="verif-box">
+                    <div class="verif-header">
+                        <strong>Independent Verifier:</strong> <span class="role-badge">@UXAuditor</span>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                    </div>
+                    <p class="critique">"CLI interface is clean, ergonomic, and provides clear diagnostics with actionable --seed flags."</p>
+                </div>
+                
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-07">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-07]</span>
+                        <h3 class="task-title">Security Hardening &amp; eBPF Boundaries</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>Security Hardening</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@RedTeamAttacker</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@BlueTeamDefender</span></div>
+                    <div><span class="meta-label">Deliberation:</span> ADVERSARIAL_JURY</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-04, TASK-06</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Memory safety and bounded loop audit in eBPF C</li><li>Watchdog starvation mitigation verified</li><li>CAP_SYS_ADMIN / CAP_BPF boundary validation</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\docs\03-security-audit.md</span>
+                            <span class="artifact-hash" title="SHA-256">76edaeb7f20eac9d...</span>
+                            <span class="artifact-size">3387 B</span>
+                        </div>
+                        </div>
+                
+                
+                <div class="jury-section">
+                    <h4>Adversarial Jury Deliberations (Round 1 & 2)</h4>
+                    <div class="jurors-grid">
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@TechnicalReviewer</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 95%)</span>
+                            </div>
+                            <div class="juror-reasoning">Starvation risk effectively mitigated by kernel sched_ext watchdog.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@AdversarialCritic</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 90%)</span>
+                            </div>
+                            <div class="juror-reasoning">Array bounds checking prevents out-of-bounds reads.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@DomainExpert</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 95%)</span>
+                            </div>
+                            <div class="juror-reasoning">CAP_BPF and CAP_SYS_ADMIN boundary properly enforced.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@FactChecker</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 100%)</span>
+                            </div>
+                            <div class="juror-reasoning">All 5 attack vectors accounted for in Blue Team mitigations.</div>
+                            
+                        </div>
+                        </div>
+                    
+                    <div class="resolution-box">
+                        <strong>Orchestrator Binding Resolution:</strong>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                        <p>Adversarial jury unanimous PASS: Security controls protect host system integrity.</p>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-08">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-08]</span>
+                        <h3 class="task-title">QA Validation &amp; DDmin Minimization Benchmark</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>QA &amp; Validation</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@QAAutomationEngineer</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@VerificationLead</span></div>
+                    <div><span class="meta-label">Deliberation:</span> ADVERSARIAL_JURY</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-05, TASK-06</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>100k events minimized to 5 critical switches demonstrated</li><li>All unit and integration tests passing</li><li>100% seed replay reproduction verified</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\docs\04-test-results.md</span>
+                            <span class="artifact-hash" title="SHA-256">35310ccc9ecead6e...</span>
+                            <span class="artifact-size">2490 B</span>
+                        </div>
+                        </div>
+                
+                
+                <div class="jury-section">
+                    <h4>Adversarial Jury Deliberations (Round 1 & 2)</h4>
+                    <div class="jurors-grid">
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@TechnicalReviewer</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 98%)</span>
+                            </div>
+                            <div class="juror-reasoning">Empirically verified: 100,000 events minimized to exactly 5 switches in 22 iterations.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@AdversarialCritic</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 92%)</span>
+                            </div>
+                            <div class="juror-reasoning">Crash remains 100% reproducible with minimized sequence.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@DomainExpert</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 95%)</span>
+                            </div>
+                            <div class="juror-reasoning">DDmin complexity conforms to O(n log n) expected performance.</div>
+                            
+                        </div>
+                        
+                        <div class="juror-card">
+                            <div class="juror-top">
+                                <span class="juror-role">@FactChecker</span>
+                                <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS (conf: 100%)</span>
+                            </div>
+                            <div class="juror-reasoning">Event IDs 1337, 7777, 25000, 68900, 99123 isolated without false positives.</div>
+                            
+                        </div>
+                        </div>
+                    
+                    <div class="resolution-box">
+                        <strong>Orchestrator Binding Resolution:</strong>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                        <p>Adversarial jury unanimous PASS: Deliverable successfully solves user requirement (100k events -&gt; 5 switches).</p>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+
+            <div class="task-card" id="task-TASK-09">
+                <div class="task-header">
+                    <div class="task-title-group">
+                        <span class="task-id">[TASK-09]</span>
+                        <h3 class="task-title">Production Documentation &amp; Delivery</h3>
+                    </div>
+                    <span class="status-pill" style="background:#DEF7EC; color:#03543F; font-weight:600;">COMPLETED</span>
+                </div>
+
+                <div class="task-meta-grid">
+                    <div><span class="meta-label">Workstream:</span> <strong>Documentation</strong></div>
+                    <div><span class="meta-label">Executor:</span> <span class="role-badge">@TechnicalWriter</span></div>
+                    <div><span class="meta-label">Verifier:</span> <span class="role-badge">@DocumentationAuditor</span></div>
+                    <div><span class="meta-label">Deliberation:</span> SINGLE_VERIFIER</div>
+                    <div><span class="meta-label">Dependencies:</span> TASK-07, TASK-08</div>
+                    <div><span class="meta-label">Retries:</span> 0</div>
+                </div>
+
+                <div class="criteria-box">
+                    <strong>Acceptance Criteria:</strong>
+                    <ul><li>Comprehensive README with architecture &amp; quickstart</li><li>Deployment guide for Linux 6.12+ and CI integration</li><li>Interactive Light-Theme HTML Dashboard</li></ul>
+                </div>
+
+                <div class='artifact-list'><strong>Deliverables & Artifacts (SHA-256):</strong>
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\README.md</span>
+                            <span class="artifact-hash" title="SHA-256">f1c81c08ce97f703...</span>
+                            <span class="artifact-size">9343 B</span>
+                        </div>
+                        
+                        <div class="artifact-row">
+                            <span class="artifact-path">📄 C:\antigravity\Heisenbug\DEPLOYMENT.md</span>
+                            <span class="artifact-hash" title="SHA-256">d416ce9525c59e6e...</span>
+                            <span class="artifact-size">1987 B</span>
+                        </div>
+                        </div>
+                
+                <div class="verif-box">
+                    <div class="verif-header">
+                        <strong>Independent Verifier:</strong> <span class="role-badge">@DocumentationAuditor</span>
+                        <span class="status-pill" style="background:#DEF7EC; color:#03543F;">PASS</span>
+                    </div>
+                    <p class="critique">"Documentation covers background, quickstart, Linux 6.12+ requirements, CLI options, and architecture."</p>
+                </div>
+                
+                
+            </div>
+            
+        </div>
+
+        <footer>
+            Built with OrchesIt Multi-Agent Control Plane &bull; SQLite ACID State &bull; High-Contrast Light Theme
+        </footer>
+    </div>
+</body>
+</html>
